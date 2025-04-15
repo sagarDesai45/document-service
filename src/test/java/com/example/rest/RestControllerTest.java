@@ -1,7 +1,10 @@
 package com.example.rest;
 
+import com.example.dto.DocumentDTO;
+import com.example.exception.CustomException;
 import com.example.model.Document;
 import com.example.service.DocumentService;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -27,13 +30,14 @@ public class RestControllerTest {
     @Test
     @TestSecurity(user = "testUser", roles = {"admin"})
     void createDocument_adminRole_success() {
-        Document documentToCreate = new Document();
+        DocumentDTO documentToCreate = new DocumentDTO();
         documentToCreate.setTitle("Test Document");
-        Document createdDocument = new Document();
+        documentToCreate.setContent("Test Content");
+        DocumentDTO createdDocument = new DocumentDTO();
         createdDocument.setId(UUID.randomUUID().toString());
         createdDocument.setTitle("Test Document");
-
-        when(documentService.createDocument(Mockito.any(Document.class))).thenReturn(createdDocument);
+        createdDocument.setContent("Test Content");
+        when(documentService.createDocument(Mockito.any(DocumentDTO.class))).thenReturn(createdDocument);
 
         given()
                 .contentType(ContentType.JSON)
@@ -51,8 +55,9 @@ public class RestControllerTest {
     @Test
     @TestSecurity(user = "testUser", roles = {"viewer"})
     void createDocument_viewerRole_forbidden() {
-        Document documentToCreate = new Document();
+        DocumentDTO documentToCreate = new DocumentDTO();
         documentToCreate.setTitle("Test Document");
+        documentToCreate.setContent("Test Content");
 
         given()
                 .contentType(ContentType.JSON)
@@ -70,11 +75,12 @@ public class RestControllerTest {
     @TestSecurity(user = "testUser", roles = {"admin", "viewer"})
     void getDocument_adminOrViewerRole_existingDocument_success() {
         UUID documentId = UUID.randomUUID();
-        Document existingDocument = new Document();
+        DocumentDTO existingDocument = new DocumentDTO();
         existingDocument.setId(documentId.toString());
         existingDocument.setTitle("Existing Document");
+        existingDocument.setContent("Existing Content");
 
-        when(documentService.getDocument(documentId)).thenReturn(Optional.of(existingDocument));
+        when(documentService.getDocument(documentId)).thenReturn(existingDocument);
 
         given()
                 .auth().preemptive().basic("testUser", "password")
@@ -93,7 +99,8 @@ public class RestControllerTest {
     @TestSecurity(user = "testUser", roles = {"admin", "viewer"})
     void getDocument_adminOrViewerRole_nonExistingDocument_forbidden() {
         UUID documentId = UUID.randomUUID();
-        when(documentService.getDocument(documentId)).thenReturn(Optional.empty());
+        when(documentService.getDocument(documentId)).thenThrow(new CustomException("exception accured",
+                HttpResponseStatus.FORBIDDEN.code()));
 
         given()
                 .auth().preemptive().basic("testUser", "password")

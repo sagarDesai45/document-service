@@ -1,8 +1,14 @@
 package com.example.service.impl;
 import com.example.context.SecurityContext;
+import com.example.dto.DocumentDTO;
+import com.example.exception.CustomException;
+import com.example.mapper.DocumentMapper;
 import com.example.model.Document;
 import com.example.model.Tenant;
+import com.example.model.TenantDocument;
 import com.example.service.DocumentService;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -19,55 +25,45 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @ApplicationScoped
+@DefaultBean
 public class DocumentServiceImpl implements DocumentService {
-
-    private final Map<UUID, Document> documentStore = new ConcurrentHashMap<>();
-    private final Map<String, List<UUID>> tenantDocuments = new ConcurrentHashMap<>();
-
 
     @Inject
     SecurityContext securityContext;
 
+    @Inject
+    DocumentMapper documentMapper;
 
-    public Document createDocument(Document document) {
+
+    @Transactional
+    public DocumentDTO createDocument(DocumentDTO document) {
 
         Tenant tenant = getValidTentant();
 
-        UUID id = UUID.randomUUID();
-        document.setId(id.toString());
-        documentStore.put(id, document);
+        Document newDoc=Document.builder().title(document.getTitle())
+                .content(document.getContent()).build();
 
-        // Associate document with tenant
-        tenantDocuments.computeIfAbsent(tenant.getId(), k -> new ArrayList<>()).add(id);
+        newDoc.persist();
 
-        return document;
+        TenantDocument tenantDocument=TenantDocument.builder().tenant(tenant).document(newDoc).build();
+
+        tenantDocument.persist();
+
+        return documentMapper.toDto(newDoc);
     }
 
-    public Optional<Document> getDocument(UUID id) {
+    public DocumentDTO getDocument(UUID id) {
 
         Tenant tenant = getValidTentant();
-
-        // Check if the document is associated with the tenant
-        List<UUID> tenantDocIds = tenantDocuments.getOrDefault(tenant.getId(), Collections.emptyList());
-        if (tenantDocIds.contains(id)) {
-            return Optional.ofNullable(documentStore.get(id));
-        }
-
-        return Optional.empty();
+        Document document=getDocumentFromDb(id,tenant.getId());
+        return documentMapper.toDto(document);
     }
 
     public String processDocument(String documentId) {
 
         Tenant tenant = getValidTentant();
-
-
-        // Check if the document is associated with the tenant
-        List<UUID> tenantDocIds = tenantDocuments.getOrDefault(tenant.getId(), Collections.emptyList());
-        if (tenantDocIds.contains(UUID.fromString(documentId))) {
-            return "Document processed";
-        }
-
-        throw new SecurityException("You don't have access");
+        Document document=getDocumentFromDb(UUID.fromString(documentId),tenant.getId());
+        return "Document Processed";
     }
 
     private Tenant getValidTentant()
@@ -77,8 +73,37 @@ public class DocumentServiceImpl implements DocumentService {
         if (Objects.isNull(tenantId) || tenantId.isEmpty()) {
             throw new RuntimeException("Something went wrong");
         }
+        UUID tenantUUID=UUID.fromString(tenantId);
+        Optional<Tenant> optTenant=Tenant.findByIdOptional(tenantUUID);
 
-        return new Tenant(tenantId,"New Tentant");
+        // if tenant presernt return it
+        if(optTenant.isPresent())
+        {
+            return optTenant.get();
+        }
+
+        //if tenant not preset create new one
+        Tenant newTenant=
+                Tenant.builder().id(tenantUUID).name("New Tenant").build();
+        Tenant.persist(newTenant);
+        return newTenant;
+    }
+
+    private Document getDocumentFromDb(UUID documentId,UUID tenantId)
+    {
+        List<TenantDocument> tenantDocs= TenantDocument.list( "document.id = ?1 ",documentId);
+
+        if(tenantDocs.isEmpty())
+        {
+            throw new CustomException("Document not found", HttpResponseStatus.BAD_REQUEST.code());
+        }
+
+        TenantDocument tenatDoc=
+                tenantDocs.stream().filter(tenantDocument -> tenantId.equals(tenantDocument.getTenant().getId()))
+                        .findFirst().orElseThrow(()-> new CustomException("You don't have access",
+                                HttpResponseStatus.FORBIDDEN.code()));
+
+        return tenatDoc.getDocument();
     }
 
 }
