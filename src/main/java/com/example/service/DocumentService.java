@@ -1,9 +1,7 @@
 package com.example.service;
 
 import com.example.dto.DocumentDTO;
-import com.example.model.Document;
 
-import java.util.Optional;
 import java.util.UUID;
 
 public interface DocumentService {

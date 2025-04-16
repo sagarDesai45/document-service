@@ -1,10 +1,8 @@
 package com.example.rest;
 
 import com.example.dto.DocumentDTO;
-import com.example.model.Document;
 import com.example.service.DocumentService;
 import io.quarkus.security.Authenticated;
-import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

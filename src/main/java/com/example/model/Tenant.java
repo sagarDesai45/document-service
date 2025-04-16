@@ -1,12 +1,8 @@
 package com.example.model;
 
 
-
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,7 +18,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Tenant  extends PanacheEntityBase {
+public class Tenant {
 
     @Id
 //    @GeneratedValue(strategy = GenerationType.UUID)

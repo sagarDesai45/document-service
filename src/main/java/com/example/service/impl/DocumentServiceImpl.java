@@ -6,6 +6,9 @@ import com.example.mapper.DocumentMapper;
 import com.example.model.Document;
 import com.example.model.Tenant;
 import com.example.model.TenantDocument;
+import com.example.repository.DocumentRepository;
+import com.example.repository.TenantDocRepository;
+import com.example.repository.TenantRepository;
 import com.example.service.DocumentService;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.quarkus.arc.DefaultBean;
@@ -34,6 +37,16 @@ public class DocumentServiceImpl implements DocumentService {
     @Inject
     DocumentMapper documentMapper;
 
+    @Inject
+    DocumentRepository documentRepository;
+
+    @Inject
+    TenantDocRepository tenantDocRepository;
+
+    @Inject
+    TenantRepository tenantRepository;
+
+
 
     @Transactional
     public DocumentDTO createDocument(DocumentDTO document) {
@@ -43,12 +56,11 @@ public class DocumentServiceImpl implements DocumentService {
         Document newDoc=Document.builder().title(document.getTitle())
                 .content(document.getContent()).build();
 
-        newDoc.persist();
+        documentRepository.persist(newDoc);
 
         TenantDocument tenantDocument=TenantDocument.builder().tenant(tenant).document(newDoc).build();
 
-        tenantDocument.persist();
-
+        tenantDocRepository.persist(tenantDocument);
         return documentMapper.toDto(newDoc);
     }
 
@@ -74,7 +86,7 @@ public class DocumentServiceImpl implements DocumentService {
             throw new RuntimeException("Something went wrong");
         }
         UUID tenantUUID=UUID.fromString(tenantId);
-        Optional<Tenant> optTenant=Tenant.findByIdOptional(tenantUUID);
+        Optional<Tenant> optTenant=tenantRepository.findByIdOptional(tenantUUID);
 
         // if tenant presernt return it
         if(optTenant.isPresent())
@@ -85,13 +97,14 @@ public class DocumentServiceImpl implements DocumentService {
         //if tenant not preset create new one
         Tenant newTenant=
                 Tenant.builder().id(tenantUUID).name("New Tenant").build();
-        Tenant.persist(newTenant);
+
+        tenantRepository.persist(newTenant);
         return newTenant;
     }
 
     private Document getDocumentFromDb(UUID documentId,UUID tenantId)
     {
-        List<TenantDocument> tenantDocs= TenantDocument.list( "document.id = ?1 ",documentId);
+        List<TenantDocument> tenantDocs= tenantDocRepository.list( "document.id = ?1 ",documentId);
 
         if(tenantDocs.isEmpty())
         {

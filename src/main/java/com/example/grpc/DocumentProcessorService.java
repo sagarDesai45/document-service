@@ -4,7 +4,6 @@ package com.example.grpc;
 import com.example.service.DocumentService;
 import io.grpc.Status;
 import io.quarkus.grpc.GrpcService;
-import io.quarkus.security.identity.CurrentIdentityAssociation;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.annotation.security.RolesAllowed;

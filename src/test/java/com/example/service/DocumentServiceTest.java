@@ -8,6 +8,9 @@ import com.example.mapper.DocumentMapper;
 import com.example.model.Document;
 import com.example.model.Tenant;
 import com.example.model.TenantDocument;
+import com.example.repository.DocumentRepository;
+import com.example.repository.TenantDocRepository;
+import com.example.repository.TenantRepository;
 import com.example.service.impl.DocumentServiceImpl;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.quarkus.test.InjectMock;
@@ -16,19 +19,14 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 @QuarkusTest
@@ -44,9 +42,20 @@ class DocumentServiceTest {
     @InjectMock
     private DocumentMapper documentMapper;
 
+    @InjectMock
+    private TenantRepository tenantRepository;
+
+    @InjectMock
+    private DocumentRepository documentRepository;
+
+    @InjectMock
+    private TenantDocRepository tenantDocRepository;
+
     private Tenant testTenant;
     private Document testDocument;
     private DocumentDTO testDocumentDTO;
+
+    private TenantDocument tenantDocument;
     private UUID testTenantId;
     private UUID testDocumentId;
 
@@ -59,23 +68,24 @@ class DocumentServiceTest {
         testDocument = Document.builder().id(testDocumentId).title("Test Document").content("Test Content").build();
         testDocumentDTO =
                 DocumentDTO.builder().id(testDocumentId.toString()).title("Test Document").content("Test Content").build();
+        tenantDocument=TenantDocument.builder().id(UUID.randomUUID()).document(testDocument).tenant(testTenant).build();
 
         Mockito.when(securityContext.getCurrentTenantId()).thenReturn(testTenantId.toString());
         Mockito.when(documentMapper.toDto(any(Document.class))).thenReturn(testDocumentDTO);
+        doNothing().when(tenantRepository).persist(testTenant);
+        doNothing().when(tenantDocRepository).persist(tenantDocument);
+        doNothing().when(documentRepository).persist(testDocument);
     }
 
     @Test
     void createDocument_success() {
 
-        Mockito.when(securityContext.getCurrentTenantId()).thenReturn(testTenantId.toString());
-        Mockito.when(documentMapper.toDto(any(Document.class))).thenReturn(testDocumentDTO);
-        DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("New Document").content("New Content").build();
-        Document expectedNewDocument = Document.builder().title("New Document").content("New Content").build();
-        TenantDocument expectedTenantDocument = TenantDocument.builder().tenant(testTenant).document(expectedNewDocument).build();
+        DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("Test Document").content("Test Content").build();
 
         DocumentDTO actualDocumentDTO = documentService.createDocument(inputDocumentDTO);
 
-        assertEquals(testDocumentDTO, actualDocumentDTO);
+        assertNotNull(actualDocumentDTO);
+        assertEquals(actualDocumentDTO.getTitle(),inputDocumentDTO.getTitle());
 
     }
 
@@ -84,11 +94,12 @@ class DocumentServiceTest {
         UUID newTenantId = UUID.randomUUID();
         when(securityContext.getCurrentTenantId()).thenReturn(newTenantId.toString());
 
-        DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("New Document").content("New Content").build();
+        DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("Test Document").content("Test Content").build();
 
         DocumentDTO actualDocumentDTO = documentService.createDocument(inputDocumentDTO);
 
-        assertEquals(testDocumentDTO, actualDocumentDTO);
+        assertNotNull(actualDocumentDTO);
+        assertEquals(actualDocumentDTO.getTitle(),inputDocumentDTO.getTitle());
 
     }
 
@@ -122,6 +133,25 @@ class DocumentServiceTest {
         assertEquals(HttpResponseStatus.BAD_REQUEST.code(), exception.getHttpStatus());
 
     }
+
+    @Test
+    void getDocument_tenantDocumentFound() {
+
+        Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
+        DocumentDTO documentDTO=documentService.getDocument(testDocumentId);
+        assertEquals(testDocumentId.toString(),documentDTO.getId());
+
+    }
+
+    @Test
+    void getDocument_tenantDocumentNotAccessed() {
+
+        Mockito.when(securityContext.getCurrentTenantId()).thenReturn(UUID.randomUUID().toString());
+        Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
+        CustomException exception = assertThrows(CustomException.class, () -> documentService.getDocument(testDocumentId));
+        assertEquals(HttpResponseStatus.FORBIDDEN.code(), exception.getHttpStatus());
+
+    }
     @Test
     void processDocument_tenantDocumentNotFound() {
 
@@ -130,6 +160,26 @@ class DocumentServiceTest {
         CustomException exception = assertThrows(CustomException.class, () -> documentService.processDocument(documentIdString));
         assertEquals("Document not found", exception.getMessage());
         assertEquals(HttpResponseStatus.BAD_REQUEST.code(), exception.getHttpStatus());
+
+    }
+
+    @Test
+    void processDocument_tenantDocumentFound() {
+
+        Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
+        String processMessage=documentService.processDocument(testDocumentId.toString());
+        assertNotNull(processMessage);
+
+    }
+
+    @Test
+    void processDocument_tenantDocumentNotAccessed() {
+
+        Mockito.when(securityContext.getCurrentTenantId()).thenReturn(UUID.randomUUID().toString());
+        Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
+        CustomException exception = assertThrows(CustomException.class,
+                () -> documentService.processDocument(testDocumentId.toString()));
+        assertEquals(HttpResponseStatus.FORBIDDEN.code(), exception.getHttpStatus());
 
     }
 

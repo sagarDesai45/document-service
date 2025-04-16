@@ -5,14 +5,6 @@ import com.example.dto.DocumentDTO;
 import com.example.exception.CustomException;
 import com.example.restclient.CacheService;
 import com.example.service.impl.RedisDocumentServiceImpl;
-import io.quarkus.arc.properties.IfBuildProperty;
-import io.quarkus.test.InjectMock;
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
-import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.QuarkusTestProfile;
-import io.quarkus.test.junit.TestProfile;
-import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.lang.annotation.Annotation;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

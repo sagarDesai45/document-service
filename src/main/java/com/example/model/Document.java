@@ -1,9 +1,8 @@
 package com.example.model;
 
 
-import io.quarkus.Generated;
+
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import io.smallrye.common.constraint.NotNull;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
