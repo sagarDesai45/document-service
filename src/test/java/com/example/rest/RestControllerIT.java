@@ -5,6 +5,7 @@ import com.example.util.TokenUtil;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.UUID;
 
@@ -14,6 +15,8 @@ import static org.hamcrest.Matchers.equalTo;
 @QuarkusTest
 public class RestControllerIT {
 
+    private static  String documentId;
+
     @Test
     void testCreateDocument_withAdminRole_shouldSucceed() {
         String token = TokenUtil.getAccessToken("testadmin", "admin@123");
@@ -21,6 +24,7 @@ public class RestControllerIT {
         DocumentDTO doc = new DocumentDTO();
         doc.setTitle("Integration Test Doc");
         doc.setContent("This is a test document.");
+
 
         given()
                 .header("Authorization", "Bearer " + token)
@@ -34,11 +38,11 @@ public class RestControllerIT {
     }
 
     @Test
-    void testGetDocument_withViewerRole_shouldSucceed() {
-
-        UUID documentId = UUID.fromString("96c4a993-faa6-4000-a259-e1e327d4d725");
+    void testGetDocument_withAdminRole_shouldSucceed() {
 
         String token = TokenUtil.getAccessToken("testadmin", "admin@123");
+        String docId=TokenUtil.createDocumentAndReturnId(token);
+        UUID documentId = UUID.fromString(docId);
 
         given()
                 .header("Authorization", "Bearer " + token)
