@@ -7,6 +7,9 @@ import com.example.restclient.CacheService;
 import com.example.service.impl.RedisDocumentServiceImpl;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
+import org.acme.grpc.document.caching.Document;
+import org.acme.grpc.document.caching.DocumentCachingGrpc;
+import org.acme.grpc.document.caching.GetDocumentRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 public class RedisDocumentServiceTest {
 
     @Mock
-    CacheService cacheService;
+    DocumentCachingGrpc.DocumentCachingBlockingStub documentService;
 
     @Mock
     SecurityContext securityContext;
@@ -48,14 +51,17 @@ public class RedisDocumentServiceTest {
     @Test
     void creatDocument_Success()
     {
-        DocumentDTO document=new DocumentDTO();
-        document.setId(UUID.randomUUID().toString());
-        document.setContent("Redis Content");
-        document.setTitle("Redis Title");
+        DocumentDTO documentDto=new DocumentDTO();
+        documentDto.setId(UUID.randomUUID().toString());
+        documentDto.setContent("Redis Content");
+        documentDto.setTitle("Redis Title");
 
-        Mockito.when(cacheService.createDocument(any())).thenReturn(document);
+        Document document=Document.newBuilder().setId(UUID.randomUUID().toString())
+                        .setTitle("Redis Title").setContent("Redis Content").build();
 
-        DocumentDTO doc=redisService.createDocument(document);
+        Mockito.when(documentService.create(any(Document.class))).thenReturn(document);
+
+        DocumentDTO doc=redisService.createDocument(documentDto);
         assertNotNull(doc.getId());
         assertEquals("Redis Title", doc.getTitle());
 
@@ -64,9 +70,14 @@ public class RedisDocumentServiceTest {
     @Test
     void createDocument_cacheServiceThrowsWebApplicationException() {
         WebApplicationException webException = new WebApplicationException("Cache service error", Response.Status.BAD_REQUEST);
-        Mockito.when(cacheService.createDocument(any(DocumentDTO.class))).thenThrow(webException);
+        Mockito.when(documentService.create(any(Document.class))).thenThrow(webException);
 
-        CustomException thrown = assertThrows(CustomException.class, () -> redisService.createDocument(new DocumentDTO()));
+        DocumentDTO documentDto=new DocumentDTO();
+        documentDto.setId(UUID.randomUUID().toString());
+        documentDto.setContent("Redis Content");
+        documentDto.setTitle("Redis Title");
+
+        CustomException thrown = assertThrows(CustomException.class, () -> redisService.createDocument(documentDto));
 
         assertEquals("Cache service error", thrown.getMessage());
         assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), thrown.getHttpStatus());
@@ -75,9 +86,14 @@ public class RedisDocumentServiceTest {
     @Test
     void createDocument_cacheServiceThrowsGenericException() {
         RuntimeException runtimeException = new RuntimeException("Generic cache error");
-        Mockito.when(cacheService.createDocument(any(DocumentDTO.class))).thenThrow(runtimeException);
+        Mockito.when(documentService.create(any(Document.class))).thenThrow(runtimeException);
 
-        CustomException thrown = assertThrows(CustomException.class, () -> redisService.createDocument(new DocumentDTO()));
+        DocumentDTO documentDto=new DocumentDTO();
+        documentDto.setId(UUID.randomUUID().toString());
+        documentDto.setContent("Redis Content");
+        documentDto.setTitle("Redis Title");
+
+        CustomException thrown = assertThrows(CustomException.class, () -> redisService.createDocument(documentDto));
 
         assertEquals("Generic cache error", thrown.getMessage());
         assertEquals(500, thrown.getHttpStatus());
@@ -92,7 +108,14 @@ public class RedisDocumentServiceTest {
         retrievedDTO.setContent("Retrieved Content");
         retrievedDTO.setTenantId(tenantId.toString());
 
-        Mockito.when(cacheService.getDocument(documentId, tenantId)).thenReturn(retrievedDTO);
+        GetDocumentRequest docRequest=GetDocumentRequest.newBuilder()
+                        .setDocumentId(documentId.toString()).setTenantId(tenantId.toString()).build();
+
+        Document document=Document.newBuilder().setId(UUID.randomUUID().toString())
+                .setTitle("Retrieved Document").setContent("Retrieved Content")
+                .setTenantId(tenantId.toString()).setId(documentId.toString()).build();
+
+        Mockito.when(documentService.getDocument(docRequest)).thenReturn(document);
 
         DocumentDTO result=redisService.getDocument(documentId);
         assertNotNull(result);
@@ -103,7 +126,9 @@ public class RedisDocumentServiceTest {
     void getDocument_cacheServiceError() {
         WebApplicationException webException = new WebApplicationException("Document not found in cache",
                 Response.status(404).build());
-        Mockito.when(cacheService.getDocument(documentId, tenantId)).thenThrow(webException);
+        GetDocumentRequest docRequest=GetDocumentRequest.newBuilder()
+                .setDocumentId(documentId.toString()).setTenantId(tenantId.toString()).build();
+        Mockito.when(documentService.getDocument(docRequest)).thenThrow(webException);
 
         CustomException exception = assertThrows(CustomException.class, () -> redisService.getDocument(documentId));
         assertEquals("Document not found in cache", exception.getMessage());
@@ -113,7 +138,9 @@ public class RedisDocumentServiceTest {
     @Test
     void getDocument_genericError() {
         RuntimeException runtimeException = new RuntimeException("Cache unavailable");
-        Mockito.when(cacheService.getDocument(documentId, tenantId)).thenThrow(runtimeException);
+        GetDocumentRequest docRequest=GetDocumentRequest.newBuilder()
+                .setDocumentId(documentId.toString()).setTenantId(tenantId.toString()).build();
+        Mockito.when(documentService.getDocument(docRequest)).thenThrow(runtimeException);
 
         CustomException exception = assertThrows(CustomException.class, () -> redisService.getDocument(documentId));
         assertEquals("Cache unavailable", exception.getMessage());
