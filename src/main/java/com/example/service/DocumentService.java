@@ -1,15 +1,14 @@
 package com.example.service;
 
-import com.example.model.Document;
+import com.example.dto.DocumentDTO;
 
-import java.util.Optional;
 import java.util.UUID;
 
 public interface DocumentService {
 
-    Optional<Document> getDocument(UUID id);
+    DocumentDTO getDocument(UUID id);
 
-    Document createDocument(Document document);
+    DocumentDTO createDocument(DocumentDTO document);
 
     String processDocument(String documentId);
 

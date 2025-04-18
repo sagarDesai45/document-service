@@ -1,30 +1,3 @@
-//syntax = "proto3";
-//
-//package com.example.grpc;
-//
-//option java_multiple_files = true;
-//option java_package = "com.example.grpc";
-//option java_outer_classname = "DocumentProto";
-//
-//service DocumentService {
-//  rpc CreateDocument (DocumentRequest) returns (DocumentResponse);
-//  rpc GetDocument (DocumentIdRequest) returns (DocumentResponse);
-//}
-//
-//message DocumentRequest {
-//  string title = 1;
-//  string content = 2;
-//}
-//
-//message DocumentResponse {
-//  string id = 1;
-//  string title = 2;
-//  string content = 3;
-//}
-//
-//message DocumentIdRequest {
-//  string id = 1;
-//}
 
 syntax = "proto3";
 
@@ -45,20 +18,5 @@ message DocumentResponse {
   string status = 1;
 }
 
-//syntax = "proto3";
-//
-//package document;
-//
-//service DocumentProcessor {
-//  rpc Process (DocumentRequest) returns (DocumentResponse);
-//}
-//
-//message DocumentRequest {
-//  string documentId = 1;
-//}
-//
-//message DocumentResponse {
-//  string status = 1;
-//}
 
 

@@ -1,12 +1,12 @@
 package com.example.rest;
 
-import com.example.model.Document;
+import com.example.dto.DocumentDTO;
 import com.example.service.DocumentService;
 import io.quarkus.security.Authenticated;
-import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -31,11 +31,11 @@ public class RestController {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("admin")
-    public Response createDocument(Document document) {
+    public Response createDocument(@Valid DocumentDTO document) {
         if (document == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid JSON payload").build();
         }
-        Document createdDocument = documentService.createDocument(document);
+        DocumentDTO createdDocument = documentService.createDocument(document);
         return Response.status(Response.Status.CREATED).entity(createdDocument).build();
     }
 
@@ -43,9 +43,8 @@ public class RestController {
     @Path("/{id}")
     @RolesAllowed({"admin","viewer"})
     public Response getDocument(@PathParam("id") UUID id) {
-        return documentService.getDocument(id)
-                .map(Response::ok)
-                .orElse(Response.status(Response.Status.FORBIDDEN))
-                .build();
+        DocumentDTO docDTO=documentService.getDocument(id);
+        return Response.status(Response.Status.OK).entity(docDTO).build();
+
     }
 }

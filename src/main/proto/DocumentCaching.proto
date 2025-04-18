@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "org.acme.grpc.document.caching";
+
+package document;
+
+service DocumentCaching {
+  rpc Create(Document) returns (Document);
+  rpc getDocument(GetDocumentRequest) returns (Document);
+}
+
+message Document {
+  string id = 1;
+  string title=2;
+  string content=3;
+  string tenantId=4;
+}
+
+message GetDocumentRequest {
+  string documentId = 1;
+  string tenantId = 2;
+}
