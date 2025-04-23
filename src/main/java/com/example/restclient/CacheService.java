@@ -10,7 +10,7 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import java.util.UUID;
 
 @Path("/cache")
-@RegisterRestClient(configKey = "document-caching")
+@RegisterRestClient(baseUri = "stork://document-caching")
 public interface CacheService {
 
     @POST

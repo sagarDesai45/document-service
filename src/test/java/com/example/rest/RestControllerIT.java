@@ -15,19 +15,18 @@ import static org.hamcrest.Matchers.equalTo;
 @QuarkusTest
 public class RestControllerIT {
 
-    private static  String documentId;
+
 
     @Test
-    void testCreateDocument_withAdminRole_shouldSucceed() {
-        String token = TokenUtil.getAccessToken("testadmin", "admin@123");
+    void testCreateDocument_success() {
 
         DocumentDTO doc = new DocumentDTO();
         doc.setTitle("Integration Test Doc");
         doc.setContent("This is a test document.");
-
+        String tenantId=UUID.randomUUID().toString();
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("X-Tenant-Id", tenantId)
                 .contentType(ContentType.JSON)
                 .body(doc)
                 .when()
@@ -38,14 +37,13 @@ public class RestControllerIT {
     }
 
     @Test
-    void testGetDocument_withAdminRole_shouldSucceed() {
-
-        String token = TokenUtil.getAccessToken("testadmin", "admin@123");
-        String docId=TokenUtil.createDocumentAndReturnId(token);
+    void testGetDocument_success() {
+        String tenantId=UUID.randomUUID().toString();
+        String docId=TokenUtil.createDocumentAndReturnId(tenantId);
         UUID documentId = UUID.fromString(docId);
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("X-Tenant-Id", tenantId)
                 .when()
                 .get("/documents/" + documentId)
                 .then()
@@ -54,32 +52,16 @@ public class RestControllerIT {
     }
 
     @Test
-    void testGetDocument_withDifferentTenant_shouldNotSuccess() {
+    void testGetDocument_notSuccess() {
 
         UUID documentId = UUID.fromString("96c4a993-faa6-4000-a259-e1e327d4d725");
 
-        String token = TokenUtil.getAccessToken("testviewer", "admin@123");
-
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("X-Tenant-Id", UUID.randomUUID().toString())
                 .when()
                 .get("/documents/" + documentId)
                 .then()
                 .statusCode(500);
     }
 
-    @Test
-    void testCreateDocument_withoutToken_shouldFail() {
-        DocumentDTO doc = new DocumentDTO();
-        doc.setTitle("Unauthorized Doc");
-        doc.setContent("No token here");
-
-        given()
-                .contentType(ContentType.JSON)
-                .body(doc)
-                .when()
-                .post("/documents")
-                .then()
-                .statusCode(401);
-    }
 }

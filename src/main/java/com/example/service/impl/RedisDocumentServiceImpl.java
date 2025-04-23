@@ -6,6 +6,7 @@ import com.example.dto.DocumentDTO;
 import com.example.exception.CustomException;
 import com.example.restclient.CacheService;
 import com.example.service.DocumentService;
+import io.netty.util.internal.StringUtil;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.grpc.GrpcClient;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,12 +33,9 @@ public class RedisDocumentServiceImpl implements DocumentService {
     @GrpcClient("document-caching")
     DocumentCachingGrpc.DocumentCachingBlockingStub documentCachingGrpc;
 
-    @Inject
-    SecurityContext securityContext;
 
     @Override
-    public DocumentDTO createDocument(DocumentDTO document) {
-        String tenantId= securityContext.getCurrentTenantId();
+    public DocumentDTO createDocument(DocumentDTO document,String tenantId) {
         document.setTenantId(tenantId);
 
         Document documentRequest=Document.newBuilder().setContent(document.getContent())
@@ -64,21 +62,26 @@ public class RedisDocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public DocumentDTO getDocument(UUID id) {
-        String tenantId= securityContext.getCurrentTenantId();
-        DocumentDTO doc=getDocumentFromRedis(id,UUID.fromString(tenantId));
+    public DocumentDTO getDocument(UUID id,String tenantId) {
+        DocumentDTO doc=getDocumentFromRedis(id,tenantId);
         return doc;
     }
 
     @Override
-    public String processDocument(String documentId) {
-        String tenantId= securityContext.getCurrentTenantId();
-        DocumentDTO doc=getDocumentFromRedis(UUID.fromString(documentId),UUID.fromString(tenantId));
+    public String processDocument(String documentId,String tenantId) {
+        DocumentDTO doc=getDocumentFromRedis(UUID.fromString(documentId),tenantId);
         return "document processed";
     }
 
-    private DocumentDTO getDocumentFromRedis(UUID documentId,UUID tenantId)
+    private DocumentDTO getDocumentFromRedis(UUID documentId,String xTenantId)
     {
+        if(StringUtil.isNullOrEmpty(xTenantId))
+        {
+            throw new RuntimeException("Something went wrong");
+        }
+
+        UUID tenantId= UUID.fromString(xTenantId);
+
         GetDocumentRequest request= GetDocumentRequest.newBuilder()
                 .setDocumentId(documentId.toString())
                 .setTenantId(tenantId.toString()).build();

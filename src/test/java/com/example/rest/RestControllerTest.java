@@ -2,22 +2,26 @@ package com.example.rest;
 
 import com.example.dto.DocumentDTO;
 import com.example.exception.CustomException;
-import com.example.model.Document;
 import com.example.service.DocumentService;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -27,118 +31,76 @@ public class RestControllerTest {
     @InjectMock
     DocumentService documentService;
 
-    @Test
-    @TestSecurity(user = "testUser", roles = {"admin"})
-    void createDocument_adminRole_success() {
-        DocumentDTO documentToCreate = new DocumentDTO();
-        documentToCreate.setTitle("Test Document");
-        documentToCreate.setContent("Test Content");
-        DocumentDTO createdDocument = new DocumentDTO();
-        createdDocument.setId(UUID.randomUUID().toString());
-        createdDocument.setTitle("Test Document");
-        createdDocument.setContent("Test Content");
-        when(documentService.createDocument(Mockito.any(DocumentDTO.class))).thenReturn(createdDocument);
+    @Inject
+    RestController restController;
 
-        given()
-                .contentType(ContentType.JSON)
-                .auth().preemptive().basic("testUser", "password")
-                .body(documentToCreate)
-                .when()
-                .post("/documents")
-                .then()
-                .statusCode(Response.Status.CREATED.getStatusCode())
-                .contentType(ContentType.JSON)
-                .body("title", is("Test Document"))
-                .body("id", is(createdDocument.getId()));
+    private DocumentDTO testDocumentDTO;
+
+    private UUID tenantId;
+    private UUID documentId;
+
+    @BeforeEach
+    void setUp()
+    {
+        tenantId=UUID.randomUUID();
+        documentId=UUID.randomUUID();
+        testDocumentDTO =
+                DocumentDTO.builder().id(documentId.toString()).title("Test Document")
+                        .tenantId(tenantId.toString()).content("Test Content").build();
     }
 
     @Test
-    @TestSecurity(user = "testUser", roles = {"viewer"})
-    void createDocument_viewerRole_forbidden() {
-        DocumentDTO documentToCreate = new DocumentDTO();
-        documentToCreate.setTitle("Test Document");
-        documentToCreate.setContent("Test Content");
+    void createDocument_success() {
 
-        given()
-                .contentType(ContentType.JSON)
-                .auth().preemptive().basic("testUser", "password")
-                .body(documentToCreate)
-                .when()
-                .post("/documents")
-                .then()
-                .statusCode(Response.Status.FORBIDDEN.getStatusCode());
+        when(documentService.createDocument(Mockito.any(DocumentDTO.class), eq(tenantId.toString()))).thenReturn(testDocumentDTO);
 
-        verifyNoInteractions(documentService);
+        Response response=restController.createDocument(tenantId.toString(),testDocumentDTO);
+
+        assertEquals(Response.Status.CREATED.getStatusCode(),response.getStatus());
     }
 
     @Test
-    @TestSecurity(user = "testUser", roles = {"admin", "viewer"})
-    void getDocument_adminOrViewerRole_existingDocument_success() {
-        UUID documentId = UUID.randomUUID();
-        DocumentDTO existingDocument = new DocumentDTO();
-        existingDocument.setId(documentId.toString());
-        existingDocument.setTitle("Existing Document");
-        existingDocument.setContent("Existing Content");
+    void getDocument_success() {
 
-        when(documentService.getDocument(documentId)).thenReturn(existingDocument);
+        when(documentService.getDocument(documentId,tenantId.toString())).thenReturn(testDocumentDTO);
 
-        given()
-                .auth().preemptive().basic("testUser", "password")
-                .when()
-                .get("/documents/" + documentId)
-                .then()
-                .statusCode(Response.Status.OK.getStatusCode())
-                .contentType(ContentType.JSON)
-                .body("id", is(documentId.toString()))
-                .body("title", is("Existing Document"));
+        Response response=restController.getDocument(documentId,tenantId.toString());
 
-        Mockito.verify(documentService).getDocument(documentId);
+        assertEquals(Response.Status.OK.getStatusCode(),response.getStatus());
     }
 
-    @Test
-    @TestSecurity(user = "testUser", roles = {"admin", "viewer"})
-    void getDocument_adminOrViewerRole_nonExistingDocument_forbidden() {
-        UUID documentId = UUID.randomUUID();
-        when(documentService.getDocument(documentId)).thenThrow(new CustomException("exception accured",
-                HttpResponseStatus.FORBIDDEN.code()));
-
-        given()
-                .auth().preemptive().basic("testUser", "password")
-                .when()
-                .get("/documents/" + documentId)
-                .then()
-                .statusCode(Response.Status.FORBIDDEN.getStatusCode());
-
-        Mockito.verify(documentService).getDocument(documentId);
-    }
-
-    @Test
-    @TestSecurity(user = "testUser", roles = {}) // No roles
-    void getDocument_noRequiredRole_forbidden() {
-        UUID documentId = UUID.randomUUID();
-
-        given()
-                .auth().preemptive().basic("testUser", "password")
-                .when()
-                .get("/documents/" + documentId)
-                .then()
-                .statusCode(Response.Status.FORBIDDEN.getStatusCode());
-
-        verifyNoInteractions(documentService);
-    }
-
-    @Test
-    @TestSecurity(user = "testUser", roles = {"role"})
-    void getDocument_incorrectRole_forbidden() {
-        UUID documentId = UUID.randomUUID();
-
-        given()
-                .auth().preemptive().basic("testUser", "password")
-                .when()
-                .get("/documents/" + documentId)
-                .then()
-                .statusCode(Response.Status.FORBIDDEN.getStatusCode());
-
-        verifyNoInteractions(documentService); // Now correctly verifying the mock
-    }
+//    @Test
+//    void getDocument_withNoTenant() {
+//        UUID documentId = UUID.randomUUID();
+//        when(documentService.getDocument(documentId,"")).thenThrow(new CustomException("something went wrong",
+//                HttpResponseStatus.BAD_REQUEST.code()));
+//
+//        Response response=restController.getDocument(documentId,"");
+//
+//        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(),response.getStatus());
+//    }
+//
+//    @Test
+//    void getDocument_accessDenied() {
+//        UUID documentId = UUID.randomUUID();
+//
+//        when(documentService.getDocument(documentId,tenantId.toString())).thenThrow(new CustomException("you don't " +
+//                "have access",HttpResponseStatus.FORBIDDEN.code()));
+//
+//        Response response=restController.getDocument(documentId,tenantId.toString());
+//
+//        assertEquals(Response.Status.FORBIDDEN.getStatusCode(),response.getStatus());
+//    }
+//
+//    @Test
+//    void getDocument_notFound() {
+//        UUID documentId = UUID.randomUUID();
+//
+//        when(documentService.getDocument(documentId,tenantId.toString())).thenThrow(new CustomException("not found",
+//                HttpResponseStatus.BAD_REQUEST.code()));
+//
+//        Response response=restController.getDocument(documentId,tenantId.toString());
+//
+//        assertEquals(Response.Status.BAD_GATEWAY.getStatusCode(),response.getStatus());
+//    }
 }

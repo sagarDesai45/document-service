@@ -6,11 +6,11 @@ import java.util.UUID;
 
 public interface DocumentService {
 
-    DocumentDTO getDocument(UUID id);
+    DocumentDTO getDocument(UUID id,String tenantId);
 
-    DocumentDTO createDocument(DocumentDTO document);
+    DocumentDTO createDocument(DocumentDTO document,String tenantId);
 
-    String processDocument(String documentId);
+    String processDocument(String documentId,String tenantId);
 
 
 }
