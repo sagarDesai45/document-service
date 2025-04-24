@@ -9,6 +9,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
+import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,7 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -69,38 +71,53 @@ public class RestControllerTest {
         assertEquals(Response.Status.OK.getStatusCode(),response.getStatus());
     }
 
-//    @Test
-//    void getDocument_withNoTenant() {
-//        UUID documentId = UUID.randomUUID();
-//        when(documentService.getDocument(documentId,"")).thenThrow(new CustomException("something went wrong",
-//                HttpResponseStatus.BAD_REQUEST.code()));
-//
-//        Response response=restController.getDocument(documentId,"");
-//
-//        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(),response.getStatus());
-//    }
-//
-//    @Test
-//    void getDocument_accessDenied() {
-//        UUID documentId = UUID.randomUUID();
-//
-//        when(documentService.getDocument(documentId,tenantId.toString())).thenThrow(new CustomException("you don't " +
-//                "have access",HttpResponseStatus.FORBIDDEN.code()));
-//
-//        Response response=restController.getDocument(documentId,tenantId.toString());
-//
-//        assertEquals(Response.Status.FORBIDDEN.getStatusCode(),response.getStatus());
-//    }
-//
-//    @Test
-//    void getDocument_notFound() {
-//        UUID documentId = UUID.randomUUID();
-//
-//        when(documentService.getDocument(documentId,tenantId.toString())).thenThrow(new CustomException("not found",
-//                HttpResponseStatus.BAD_REQUEST.code()));
-//
-//        Response response=restController.getDocument(documentId,tenantId.toString());
-//
-//        assertEquals(Response.Status.BAD_GATEWAY.getStatusCode(),response.getStatus());
-//    }
+    @Test
+    void getDocument_withNoTenant() {
+        UUID documentId = UUID.randomUUID();
+        when(documentService.getDocument(documentId,"")).thenThrow(new CustomException("something went wrong",
+                HttpResponseStatus.BAD_REQUEST.code()));
+
+        CustomException thrown = assertThrows(
+                CustomException.class,
+                () -> restController.getDocument(documentId, ""),
+                "something went wrong"
+        );
+
+        assertEquals("something went wrong", thrown.getMessage());
+        assertEquals(HttpResponseStatus.BAD_REQUEST.code(), thrown.getHttpStatus());
+    }
+
+    @Test
+    void getDocument_accessDenied() {
+        UUID documentId = UUID.randomUUID();
+
+        when(documentService.getDocument(documentId, tenantId.toString()))
+                .thenThrow(new CustomException("you don't have access", HttpResponseStatus.FORBIDDEN.code()));
+
+        CustomException thrown = assertThrows(
+                CustomException.class,
+                () -> restController.getDocument(documentId, tenantId.toString()),
+                "Expected getDocument to throw CustomException"
+        );
+
+        assertEquals("you don't have access", thrown.getMessage());
+        assertEquals(HttpResponseStatus.FORBIDDEN.code(), thrown.getHttpStatus());
+    }
+
+    @Test
+    void getDocument_notFound() {
+        UUID documentId = UUID.randomUUID();
+
+        when(documentService.getDocument(documentId,tenantId.toString())).thenThrow(new CustomException("not found",
+                HttpResponseStatus.BAD_REQUEST.code()));
+
+        CustomException thrown = assertThrows(
+                CustomException.class,
+                () -> restController.getDocument(documentId, tenantId.toString()),
+                "not found"
+        );
+
+        assertEquals("not found", thrown.getMessage());
+        assertEquals(HttpResponseStatus.BAD_REQUEST.code(), thrown.getHttpStatus());
+    }
 }
