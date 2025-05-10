@@ -26,42 +26,38 @@ import static org.junit.jupiter.api.Assertions.fail;
 @QuarkusTest
 public class DocumentProcesserIT {
 
-    @GrpcClient("document")
+    @GrpcClient
     DocumentProcessorGrpc.DocumentProcessorBlockingStub stub;
 
 
     @Test
-    public void testProcessDocument_withUnauthorizedRole_shouldFail() {
+    public void testProcessDocument_noTenant() {
         String uuid = UUID.randomUUID().toString();
 
         DocumentRequest request = DocumentRequest.newBuilder()
                 .setDocumentId(uuid)
                 .build();
 
-        String token = "invalid-token";
-
         try {
-            withToken(token).process(request);
-            fail("Expected UNAUTHENTICATED or PERMISSION_DENIED");
+            stub.process(request);
+            fail("something went wrong");
         } catch (StatusRuntimeException e) {
-            assertTrue(
-                    e.getStatus().getCode() == Status.Code.UNAUTHENTICATED
-            );
+            assertEquals(Status.Code.INTERNAL, e.getStatus().getCode());
         }
     }
 
     @Test
     public void testProcessDocument_withNotExistDocument() {
         String uuid = UUID.randomUUID().toString();
+        stub=TokenUtil.withTenant(stub,uuid);
 
         DocumentRequest request = DocumentRequest.newBuilder()
                 .setDocumentId(uuid)
                 .build();
 
-        String token = TokenUtil.getAccessToken("testadmin", "admin@123");
 
         try {
-            withToken(token).process(request);
+            stub.process(request);
             fail("Expected INTERNAL for non-existent document");
         } catch (StatusRuntimeException e) {
             assertEquals(Status.Code.INTERNAL, e.getStatus().getCode());
@@ -69,28 +65,21 @@ public class DocumentProcesserIT {
     }
 
     @Test
-    public void testProcessDocument_withAdminRole_shouldSucceed() {
+    public void testProcessDocument_success() {
 
-        String token = TokenUtil.getAccessToken("testadmin", "admin@123");
-        String documentId = TokenUtil.createDocumentAndReturnId(token);
+        String tenant=UUID.randomUUID().toString();
+        String documentId = TokenUtil.createDocumentAndReturnId(tenant);
+
+        stub=TokenUtil.withTenant(stub,tenant);
 
         DocumentRequest request = DocumentRequest.newBuilder()
                 .setDocumentId(documentId)
                 .build();
 
-        DocumentResponse response = assertDoesNotThrow(() -> withToken(token).process(request));
+        DocumentResponse response = assertDoesNotThrow(() -> stub.process(request));
 
         assertNotNull(response);
 
-    }
-
-    private DocumentProcessorGrpc.DocumentProcessorBlockingStub withToken(String token) {
-        Metadata metadata = new Metadata();
-        Metadata.Key<String> AUTHORIZATION_KEY = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
-        metadata.put(AUTHORIZATION_KEY, "Bearer " + token);
-
-        ClientInterceptor interceptor = MetadataUtils.newAttachHeadersInterceptor(metadata);
-        return stub.withInterceptors(interceptor);
     }
 
 

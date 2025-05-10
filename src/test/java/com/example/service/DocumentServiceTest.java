@@ -1,7 +1,6 @@
 package com.example.service;
 
 
-import com.example.context.SecurityContext;
 import com.example.dto.DocumentDTO;
 import com.example.exception.CustomException;
 import com.example.mapper.DocumentMapper;
@@ -27,7 +26,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
+
 
 @QuarkusTest
 @Transactional
@@ -36,8 +35,6 @@ class DocumentServiceTest {
     @Inject
     private DocumentServiceImpl documentService;
 
-    @InjectMock
-    private SecurityContext securityContext;
 
     @InjectMock
     private DocumentMapper documentMapper;
@@ -70,7 +67,6 @@ class DocumentServiceTest {
                 DocumentDTO.builder().id(testDocumentId.toString()).title("Test Document").content("Test Content").build();
         tenantDocument=TenantDocument.builder().id(UUID.randomUUID()).document(testDocument).tenant(testTenant).build();
 
-        Mockito.when(securityContext.getCurrentTenantId()).thenReturn(testTenantId.toString());
         Mockito.when(documentMapper.toDto(any(Document.class))).thenReturn(testDocumentDTO);
         doNothing().when(tenantRepository).persist(testTenant);
         doNothing().when(tenantDocRepository).persist(tenantDocument);
@@ -82,7 +78,7 @@ class DocumentServiceTest {
 
         DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("Test Document").content("Test Content").build();
 
-        DocumentDTO actualDocumentDTO = documentService.createDocument(inputDocumentDTO);
+        DocumentDTO actualDocumentDTO = documentService.createDocument(inputDocumentDTO,testTenantId.toString());
 
         assertNotNull(actualDocumentDTO);
         assertEquals(actualDocumentDTO.getTitle(),inputDocumentDTO.getTitle());
@@ -92,11 +88,10 @@ class DocumentServiceTest {
     @Test
     void createDocument_newTenant() {
         UUID newTenantId = UUID.randomUUID();
-        when(securityContext.getCurrentTenantId()).thenReturn(newTenantId.toString());
 
         DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("Test Document").content("Test Content").build();
 
-        DocumentDTO actualDocumentDTO = documentService.createDocument(inputDocumentDTO);
+        DocumentDTO actualDocumentDTO = documentService.createDocument(inputDocumentDTO,newTenantId.toString());
 
         assertNotNull(actualDocumentDTO);
         assertEquals(actualDocumentDTO.getTitle(),inputDocumentDTO.getTitle());
@@ -106,21 +101,19 @@ class DocumentServiceTest {
     @Test
     void createDocument_noTenantId() {
 
-        when(securityContext.getCurrentTenantId()).thenReturn(null);
-
         DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("New Document").content("New Content").build();
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> documentService.createDocument(inputDocumentDTO));
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> documentService.createDocument(inputDocumentDTO,null));
         assertEquals("Something went wrong", exception.getMessage());
     }
 
     @Test
     void createDocument_emptyTenantId() {
 
-        when(securityContext.getCurrentTenantId()).thenReturn("");
-
         DocumentDTO inputDocumentDTO = DocumentDTO.builder().title("New Document").content("New Content").build();
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> documentService.createDocument(inputDocumentDTO));
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> documentService.createDocument(inputDocumentDTO,""));
         assertEquals("Something went wrong", exception.getMessage());
 
     }
@@ -128,7 +121,8 @@ class DocumentServiceTest {
     @Test
     void getDocument_tenantDocumentNotFound() {
 
-        CustomException exception = assertThrows(CustomException.class, () -> documentService.getDocument(testDocumentId));
+        CustomException exception = assertThrows(CustomException.class,
+                () -> documentService.getDocument(testDocumentId,testTenantId.toString()));
         assertEquals("Document not found", exception.getMessage());
         assertEquals(HttpResponseStatus.BAD_REQUEST.code(), exception.getHttpStatus());
 
@@ -138,7 +132,7 @@ class DocumentServiceTest {
     void getDocument_tenantDocumentFound() {
 
         Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
-        DocumentDTO documentDTO=documentService.getDocument(testDocumentId);
+        DocumentDTO documentDTO=documentService.getDocument(testDocumentId,testTenantId.toString());
         assertEquals(testDocumentId.toString(),documentDTO.getId());
 
     }
@@ -146,9 +140,9 @@ class DocumentServiceTest {
     @Test
     void getDocument_tenantDocumentNotAccessed() {
 
-        Mockito.when(securityContext.getCurrentTenantId()).thenReturn(UUID.randomUUID().toString());
         Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
-        CustomException exception = assertThrows(CustomException.class, () -> documentService.getDocument(testDocumentId));
+        CustomException exception = assertThrows(CustomException.class,
+                () -> documentService.getDocument(testDocumentId,UUID.randomUUID().toString()));
         assertEquals(HttpResponseStatus.FORBIDDEN.code(), exception.getHttpStatus());
 
     }
@@ -157,7 +151,8 @@ class DocumentServiceTest {
 
         String documentIdString = testDocumentId.toString();
 
-        CustomException exception = assertThrows(CustomException.class, () -> documentService.processDocument(documentIdString));
+        CustomException exception = assertThrows(CustomException.class,
+                () -> documentService.processDocument(documentIdString,testTenantId.toString()));
         assertEquals("Document not found", exception.getMessage());
         assertEquals(HttpResponseStatus.BAD_REQUEST.code(), exception.getHttpStatus());
 
@@ -167,7 +162,7 @@ class DocumentServiceTest {
     void processDocument_tenantDocumentFound() {
 
         Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
-        String processMessage=documentService.processDocument(testDocumentId.toString());
+        String processMessage=documentService.processDocument(testDocumentId.toString(),testTenantId.toString());
         assertNotNull(processMessage);
 
     }
@@ -175,10 +170,9 @@ class DocumentServiceTest {
     @Test
     void processDocument_tenantDocumentNotAccessed() {
 
-        Mockito.when(securityContext.getCurrentTenantId()).thenReturn(UUID.randomUUID().toString());
         Mockito.when(tenantDocRepository.list("document.id = ?1 ",testDocumentId)).thenReturn(List.of(tenantDocument));
         CustomException exception = assertThrows(CustomException.class,
-                () -> documentService.processDocument(testDocumentId.toString()));
+                () -> documentService.processDocument(testDocumentId.toString(),UUID.randomUUID().toString()));
         assertEquals(HttpResponseStatus.FORBIDDEN.code(), exception.getHttpStatus());
 
     }

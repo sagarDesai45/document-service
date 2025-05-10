@@ -11,6 +11,7 @@ import com.example.repository.TenantDocRepository;
 import com.example.repository.TenantRepository;
 import com.example.service.DocumentService;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.util.internal.StringUtil;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -49,9 +50,9 @@ public class DocumentServiceImpl implements DocumentService {
 
 
     @Transactional
-    public DocumentDTO createDocument(DocumentDTO document) {
+    public DocumentDTO createDocument(DocumentDTO document,String tenantId) {
 
-        Tenant tenant = getValidTentant();
+        Tenant tenant = getValidTentant(tenantId);
 
         Document newDoc=Document.builder().title(document.getTitle())
                 .content(document.getContent()).build();
@@ -64,27 +65,28 @@ public class DocumentServiceImpl implements DocumentService {
         return documentMapper.toDto(newDoc);
     }
 
-    public DocumentDTO getDocument(UUID id) {
+    public DocumentDTO getDocument(UUID id,String tenantId) {
 
-        Tenant tenant = getValidTentant();
+        Tenant tenant = getValidTentant(tenantId);
         Document document=getDocumentFromDb(id,tenant.getId());
         return documentMapper.toDto(document);
     }
 
-    public String processDocument(String documentId) {
+    public String processDocument(String documentId,String tenantId) {
 
-        Tenant tenant = getValidTentant();
+        Tenant tenant = getValidTentant(tenantId);
         Document document=getDocumentFromDb(UUID.fromString(documentId),tenant.getId());
         return "Document Processed";
     }
 
-    private Tenant getValidTentant()
+    private Tenant getValidTentant(String tenantId)
     {
 
-        String tenantId = securityContext.getCurrentTenantId();
-        if (Objects.isNull(tenantId) || tenantId.isEmpty()) {
+        if(StringUtil.isNullOrEmpty(tenantId))
+        {
             throw new RuntimeException("Something went wrong");
         }
+
         UUID tenantUUID=UUID.fromString(tenantId);
         Optional<Tenant> optTenant=tenantRepository.findByIdOptional(tenantUUID);
 
